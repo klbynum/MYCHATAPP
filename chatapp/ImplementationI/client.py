@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 TCP Client
 - Connects to the threaded server and exchanges text messages.
@@ -12,7 +11,7 @@ import time
 import argparse
 from datetime import datetime
 
-HOST = "172.31.20.35" # LAN IP ADDRESS
+HOST = "192.168.0.103" # LAN IP ADDRESS
 PORT = 5050
 CONNECT_TIMEOUT = 5
 

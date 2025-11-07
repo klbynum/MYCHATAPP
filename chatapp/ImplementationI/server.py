@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 TCP Server
 - Accepts multiple clients concurrently using threading.
@@ -11,11 +10,11 @@ import threading
 import time
 
 HOST = "0.0.0.0"   # Localhost
-PORT = 5050          # You can change this if needed
+PORT = 5050          # change this if needed
 clients = []         # Track connected clients
 
 def handle_client(conn, addr):
-    """Handles one connected client."""
+    # Handles one connected client
     print(f"[server] New connection from {addr}")
     conn.settimeout(60)
     clients.append(conn)
@@ -55,7 +54,7 @@ def handle_client(conn, addr):
         print(f"[server] Closed connection with {addr}")
 
 def start_server():
-    """Starts the TCP server."""
+    # Starts the TCP server
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind((HOST, PORT))
