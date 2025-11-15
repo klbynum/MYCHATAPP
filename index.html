@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TCP Chat Web GUI</title>
+  <style>
+    :root { --bg: #0b1020; --panel:#121832; --ink:#e8ecff; --muted:#9aa4c7; --accent:#7c9cff; --chipSent:#2aa84a; --chipRecv:#3a7bd5; }
+    * { box-sizing: border-box; }
+    body { margin:0; background: var(--bg); color: var(--ink); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial; }
+    header { display:flex; gap:.5rem; align-items:center; padding: .75rem 1rem; background: linear-gradient(180deg, #161e3d, #101631); position: sticky; top:0; z-index:10; }
+    header input { background:#0e1430; color:var(--ink); border:1px solid #1e2650; border-radius:.5rem; padding:.5rem .6rem; width: 18rem; }
+    header button { background:#1b2554; color:var(--ink); border:1px solid #2a377c; padding:.5rem .8rem; border-radius:.6rem; cursor:pointer; }
+    header button:hover { filter:brightness(1.1); }
+    main { height: calc(100vh - 64px); display:grid; grid-template-rows: 1fr auto; }
+    #log { padding:1rem; overflow-y:auto; }
+    .msg { display:flex; gap:.75rem; align-items:flex-start; margin:.5rem 0; }
+    .bubble { max-width: 70ch; padding:.6rem .8rem; border-radius: .8rem; background: #0e1430; border:1px solid #1c2454; box-shadow: 0 4px 14px rgba(0,0,0,.25);
+      white-space: pre-wrap; word-break: break-word; }
+    .meta { font-size:.8rem; color: var(--muted); display:flex; gap:.5rem; align-items:center; }
+    .chip { font-size:.7rem; padding:.15rem .45rem; border-radius:999px; color:white; }
+    .chip.sent { background: var(--chipSent); }
+    .chip.recv { background: var(--chipRecv); }
+    footer { background: #0d1330; border-top:1px solid #1a2252; padding:.6rem; display:flex; gap:.5rem; }
+    footer input[type="text"] { flex:1; background:#0b1233; color:var(--ink); border:1px solid #1b2456; border-radius:.6rem; padding:.6rem .8rem; }
+    footer button { background:#1b2554; color:var(--ink); border:1px solid #2a377c; padding:.6rem .9rem; border-radius:.6rem; cursor:pointer; }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>TCP Chat Web GUI</strong>
+    <span style="opacity:.6; margin-left:.5rem">via WebSocket bridge</span>
+    <div style="flex:1"></div>
+    <label style="opacity:.8; margin-right:.25rem">WS:</label>
+    <input id="wsUrl" placeholder="ws://localhost:8765" />
+    <button id="connectBtn">Connect</button>
+    <button id="disconnectBtn" disabled>Disconnect</button>
+    <button id="demoBtn" disabled>Demo</button>
+  </header>
+
+  <main>
+    <div id="log"></div>
+    <footer>
+      <input id="input" type="text" placeholder="Type a message… Use /quit to exit" disabled />
+      <button id="sendBtn" disabled>Send</button>
+    </footer>
+  </main>
+
+  <script>
+    const logEl = document.getElementById('log');
+    const inputEl = document.getElementById('input');
+    const sendBtn = document.getElementById('sendBtn');
+    const wsUrlEl = document.getElementById('wsUrl');
+    const connectBtn = document.getElementById('connectBtn');
+    const disconnectBtn = document.getElementById('disconnectBtn');
+    const demoBtn = document.getElementById('demoBtn');
+
+    let ws = null;
+
+    function ts(){
+      const d = new Date();
+      return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+    }
+
+    function pushMessage(kind, text){
+      const row = document.createElement('div');
+      row.className = 'msg';
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      const chip = document.createElement('span');
+      chip.className = 'chip ' + (kind === 'sent' ? 'sent' : 'recv');
+      chip.textContent = kind.toUpperCase();
+      const time = document.createElement('span');
+      time.textContent = ts();
+      meta.appendChild(chip);
+      meta.appendChild(time);
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.textContent = text;
+      row.appendChild(meta);
+      row.appendChild(bubble);
+      logEl.appendChild(row);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function setConnected(state){
+      inputEl.disabled = !state;
+      sendBtn.disabled = !state;
+      disconnectBtn.disabled = !state;
+      demoBtn.disabled = !state;
+      connectBtn.disabled = state;
+    }
+
+    connectBtn.addEventListener('click', () => {
+      const url = wsUrlEl.value.trim() || 'ws://localhost:8765';
+      try {
+        ws = new WebSocket(url);
+      } catch (e) {
+        pushMessage('recv', '[ui] Invalid WS URL');
+        return;
+      }
+
+      ws.addEventListener('open', () => {
+        setConnected(true);
+        pushMessage('recv', `[ui] Connected to ${url}`);
+        inputEl.focus();
+      });
+
+      ws.addEventListener('message', (ev) => {
+        // Bridge sends server lines as plain text
+        pushMessage('recv', ev.data);
+      });
+
+      ws.addEventListener('close', () => {
+        setConnected(false);
+        pushMessage('recv', '[ui] Disconnected');
+      });
+
+      ws.addEventListener('error', (e) => {
+        pushMessage('recv', '[ui] WebSocket error');
+      });
+    });
+
+    disconnectBtn.addEventListener('click', () => {
+      if (ws) ws.close();
+    });
+
+    function sendLine(line){
+      if (!ws || ws.readyState !== 1) return;
+      ws.send(line);
+      pushMessage('sent', line);
+    }
+
+    sendBtn.addEventListener('click', () => {
+      const v = inputEl.value.trim();
+      if (!v) return;
+      sendLine(v);
+      inputEl.value = '';
+      if (v === '/quit') ws.close();
+    });
+
+    inputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        sendBtn.click();
+      }
+    });
+
+    demoBtn.addEventListener('click', async () => {
+      const demo = ["Hello, server!", "/time", "/clients", "Testing 123", "/quit"];
+      for (const line of demo){
+        if (!ws || ws.readyState !== 1) break;
+        sendLine(line);
+        await new Promise(r => setTimeout(r, 500));
+      }
+    });
+  </script>
+</body>
+</html>
