@@ -39,8 +39,14 @@ def handle_client(conn, addr):
                 conn.sendall((response + "\n").encode())
                 break
             else:
-                response = f"Echo: {msg}"
-
+                response = f"[{addr}] {msg}"
+                # broadcast to all connected clients
+                for c in clients:
+                    if c != conn:
+                        try:
+                            c.sendall((response + "\n").encode())
+                        except:
+                            pass
             conn.sendall((response + "\n").encode())
 
     except ConnectionResetError:
